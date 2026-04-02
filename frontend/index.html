@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claude Code Control Surface</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail">
+        <div class="brand-block">
+          <p class="eyebrow">Repository Console</p>
+          <h1>Claude Code</h1>
+          <p class="rail-copy">
+            Browser control surface for commands, tools, MCP, tasks, sessions, agents, and permissions.
+          </p>
+        </div>
+
+        <nav class="nav-groups">
+          <button class="nav-item active" data-view="workspace">Workspace</button>
+          <button class="nav-item" data-view="commands">Commands</button>
+          <button class="nav-item" data-view="tools">Tools</button>
+          <button class="nav-item" data-view="tasks">Tasks</button>
+          <button class="nav-item" data-view="mcp">MCP</button>
+          <button class="nav-item" data-view="settings">Settings</button>
+        </nav>
+
+        <section class="status-stack">
+          <div class="status-card">
+            <span class="label">Transport</span>
+            <strong>Bridge + Direct Connect Ready</strong>
+            <small>Target runtime: `bridge/`, `remote/`, `server/`, `entrypoints/sdk/`</small>
+          </div>
+          <div class="status-card">
+            <span class="label">Runtime</span>
+            <strong>Node 18+, Bun-aware</strong>
+            <small>Static prototype now, adapter layer next</small>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-stage">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Front-end Control Plane</p>
+            <h2 id="view-title">Workspace</h2>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost action" data-action="new-session">New Session</button>
+            <button class="ghost action" data-action="toggle-command-palette">Command Palette</button>
+            <button class="primary action" data-action="simulate-turn">Simulate Turn</button>
+          </div>
+        </header>
+
+        <section class="hero-grid">
+          <article class="hero-panel">
+            <p class="eyebrow">Current Session</p>
+            <h3>main / interactive print mode</h3>
+            <p>
+              Single browser workspace for transcript, tool execution, permissions, tasks, and remote session routing.
+            </p>
+            <div class="hero-tags">
+              <span>Session Memory</span>
+              <span>Plan Mode</span>
+              <span>Worktree</span>
+              <span>Multi-Agent</span>
+            </div>
+          </article>
+
+          <article class="stats-grid">
+            <div class="stat-card">
+              <span>Messages</span>
+              <strong id="message-count">18</strong>
+            </div>
+            <div class="stat-card">
+              <span>Queued Tasks</span>
+              <strong id="task-count">4</strong>
+            </div>
+            <div class="stat-card">
+              <span>MCP Servers</span>
+              <strong id="mcp-count">3</strong>
+            </div>
+            <div class="stat-card">
+              <span>Pending Permissions</span>
+              <strong id="permission-count">2</strong>
+            </div>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <section class="panel transcript-panel" data-panel="workspace">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Transcript</p>
+                <h3>Messages, tool results, approvals</h3>
+              </div>
+              <button class="ghost action" data-action="append-message">Add Event</button>
+            </div>
+            <div class="transcript-list" id="transcript-list"></div>
+            <div class="composer">
+              <label for="composer-input">Prompt / command</label>
+              <textarea id="composer-input" rows="4">Review the workspace, route through tool search, then resume the active task.</textarea>
+              <div class="composer-actions">
+                <button class="ghost action" data-action="inject-command">Insert Slash Command</button>
+                <button class="primary action" data-action="send-composer">Send</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel side-panel" data-panel="workspace">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Inspector</p>
+                <h3 id="inspector-title">Runtime overview</h3>
+              </div>
+            </div>
+            <div class="detail-card" id="inspector-body"></div>
+          </section>
+
+          <section class="panel module-panel hidden" data-panel="commands">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Command Surface</p>
+                <h3>Slash commands and feature entry points</h3>
+              </div>
+            </div>
+            <div class="card-list" id="commands-list"></div>
+          </section>
+
+          <section class="panel module-panel hidden" data-panel="tools">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Tool Router</p>
+                <h3>Files, shell, agents, web, worktree, task APIs</h3>
+              </div>
+            </div>
+            <div class="card-list" id="tools-list"></div>
+          </section>
+
+          <section class="panel module-panel hidden" data-panel="tasks">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Task Center</p>
+                <h3>Foreground and background execution</h3>
+              </div>
+            </div>
+            <div class="card-list" id="tasks-list"></div>
+          </section>
+
+          <section class="panel module-panel hidden" data-panel="mcp">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">MCP & Plugins</p>
+                <h3>Connected servers, channels, and capabilities</h3>
+              </div>
+            </div>
+            <div class="card-list" id="mcp-list"></div>
+          </section>
+
+          <section class="panel module-panel hidden" data-panel="settings">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Configuration</p>
+                <h3>Permission mode, model, transport, and UX flags</h3>
+              </div>
+            </div>
+            <div class="settings-grid" id="settings-grid"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="command-palette">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Command Palette</p>
+          <h3>Route into existing command owners</h3>
+        </div>
+        <button class="ghost action" data-action="close-command-palette">Close</button>
+      </div>
+      <div class="palette-grid" id="palette-grid"></div>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
