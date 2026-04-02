@@ -11,9 +11,9 @@
       <aside class="rail">
         <div class="brand-block">
           <p class="eyebrow">Repository Console</p>
-          <h1>Claude Code</h1>
+          <h1 data-app-title>Claude Code</h1>
           <p class="rail-copy">
-            Browser control surface for commands, tools, MCP, tasks, sessions, agents, and permissions.
+            Product-grade browser workspace for commands, tools, MCP, tasks, agents, permissions, and session control.
           </p>
         </div>
 
@@ -29,13 +29,13 @@
         <section class="status-stack">
           <div class="status-card">
             <span class="label">Transport</span>
-            <strong>Bridge + Direct Connect Ready</strong>
+            <strong data-transport>Connecting to mock bridge</strong>
             <small>Target runtime: `bridge/`, `remote/`, `server/`, `entrypoints/sdk/`</small>
           </div>
           <div class="status-card">
-            <span class="label">Runtime</span>
-            <strong>Node 18+, Bun-aware</strong>
-            <small>Static prototype now, adapter layer next</small>
+            <span class="label">Mode</span>
+            <strong><span data-branch>main</span> / <span data-mode>interactive</span></strong>
+            <small>Static app shell now, transport adapter ready for live wiring</small>
           </div>
         </section>
       </aside>
@@ -44,23 +44,42 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Front-end Control Plane</p>
-            <h2 id="view-title">Workspace</h2>
+            <h2 data-view-title>Workspace</h2>
           </div>
           <div class="topbar-actions">
             <button class="ghost action" data-action="new-session">New Session</button>
             <button class="ghost action" data-action="toggle-command-palette">Command Palette</button>
+            <button class="ghost action" data-action="session-interrupt">Interrupt</button>
             <button class="primary action" data-action="simulate-turn">Simulate Turn</button>
           </div>
         </header>
 
+        <section class="workspace-toolbar">
+          <label class="search-input">
+            <span class="eyebrow">Global Search</span>
+            <input
+              type="search"
+              data-global-search
+              placeholder="Search commands, tools, tasks, MCP, or transcript payloads"
+            />
+          </label>
+          <div class="filter-cluster">
+            <button class="chip active" data-status-filter="all" type="button">All</button>
+            <button class="chip" data-status-filter="running" type="button">Running</button>
+            <button class="chip" data-status-filter="blocked" type="button">Blocked</button>
+            <button class="chip" data-status-filter="complete" type="button">Complete</button>
+          </div>
+        </section>
+
         <section class="hero-grid">
           <article class="hero-panel">
             <p class="eyebrow">Current Session</p>
-            <h3>main / interactive print mode</h3>
+            <h3 data-session-mode>main / interactive / connected</h3>
             <p>
-              Single browser workspace for transcript, tool execution, permissions, tasks, and remote session routing.
+              Single browser workspace for transcript, tool execution, approvals, task orchestration, and remote session routing.
             </p>
             <div class="hero-tags">
+              <span data-session-name>Main Workspace</span>
               <span>Session Memory</span>
               <span>Plan Mode</span>
               <span>Worktree</span>
@@ -71,19 +90,19 @@
           <article class="stats-grid">
             <div class="stat-card">
               <span>Messages</span>
-              <strong id="message-count">18</strong>
+              <strong data-message-count>0</strong>
             </div>
             <div class="stat-card">
               <span>Queued Tasks</span>
-              <strong id="task-count">4</strong>
+              <strong data-task-count>0</strong>
             </div>
             <div class="stat-card">
               <span>MCP Servers</span>
-              <strong id="mcp-count">3</strong>
+              <strong data-mcp-count>0</strong>
             </div>
             <div class="stat-card">
               <span>Pending Permissions</span>
-              <strong id="permission-count">2</strong>
+              <strong data-permission-count>0</strong>
             </div>
           </article>
         </section>
@@ -93,16 +112,16 @@
             <div class="panel-header">
               <div>
                 <p class="eyebrow">Transcript</p>
-                <h3>Messages, tool results, approvals</h3>
+                <h3>Messages, tool results, approvals, checkpoints</h3>
               </div>
-              <button class="ghost action" data-action="append-message">Add Event</button>
+              <button class="ghost action" data-action="append-event">Add Event</button>
             </div>
-            <div class="transcript-list" id="transcript-list"></div>
+            <div class="transcript-list" data-transcript-list></div>
             <div class="composer">
               <label for="composer-input">Prompt / command</label>
-              <textarea id="composer-input" rows="4">Review the workspace, route through tool search, then resume the active task.</textarea>
+              <textarea id="composer-input" data-composer-input rows="4">Review the workspace, route through tool search, then resume the active task.</textarea>
               <div class="composer-actions">
-                <button class="ghost action" data-action="inject-command">Insert Slash Command</button>
+                <button class="ghost action" data-action="insert-command">Insert Slash Command</button>
                 <button class="primary action" data-action="send-composer">Send</button>
               </div>
             </div>
@@ -112,10 +131,19 @@
             <div class="panel-header">
               <div>
                 <p class="eyebrow">Inspector</p>
-                <h3 id="inspector-title">Runtime overview</h3>
+                <h3 data-inspector-title>Runtime overview</h3>
               </div>
             </div>
-            <div class="detail-card" id="inspector-body"></div>
+            <div class="detail-card" data-inspector-body></div>
+            <div class="panel-subsection">
+              <div class="panel-header compact">
+                <div>
+                  <p class="eyebrow">Live Activity</p>
+                  <h3>Streaming runtime feed</h3>
+                </div>
+              </div>
+              <div class="activity-feed" data-activity-feed></div>
+            </div>
           </section>
 
           <section class="panel module-panel hidden" data-panel="commands">
@@ -125,7 +153,7 @@
                 <h3>Slash commands and feature entry points</h3>
               </div>
             </div>
-            <div class="card-list" id="commands-list"></div>
+            <div class="card-list" data-commands-list></div>
           </section>
 
           <section class="panel module-panel hidden" data-panel="tools">
@@ -135,7 +163,7 @@
                 <h3>Files, shell, agents, web, worktree, task APIs</h3>
               </div>
             </div>
-            <div class="card-list" id="tools-list"></div>
+            <div class="card-list" data-tools-list></div>
           </section>
 
           <section class="panel module-panel hidden" data-panel="tasks">
@@ -145,7 +173,7 @@
                 <h3>Foreground and background execution</h3>
               </div>
             </div>
-            <div class="card-list" id="tasks-list"></div>
+            <div class="card-list" data-tasks-list></div>
           </section>
 
           <section class="panel module-panel hidden" data-panel="mcp">
@@ -155,7 +183,7 @@
                 <h3>Connected servers, channels, and capabilities</h3>
               </div>
             </div>
-            <div class="card-list" id="mcp-list"></div>
+            <div class="card-list" data-mcp-list></div>
           </section>
 
           <section class="panel module-panel hidden" data-panel="settings">
@@ -165,13 +193,13 @@
                 <h3>Permission mode, model, transport, and UX flags</h3>
               </div>
             </div>
-            <div class="settings-grid" id="settings-grid"></div>
+            <div class="settings-grid" data-settings-grid></div>
           </section>
         </section>
       </main>
     </div>
 
-    <dialog id="command-palette">
+    <dialog data-command-palette>
       <div class="dialog-head">
         <div>
           <p class="eyebrow">Command Palette</p>
@@ -179,9 +207,9 @@
         </div>
         <button class="ghost action" data-action="close-command-palette">Close</button>
       </div>
-      <div class="palette-grid" id="palette-grid"></div>
+      <div class="palette-grid" data-palette-grid></div>
     </dialog>
 
-    <script src="./app.js"></script>
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>

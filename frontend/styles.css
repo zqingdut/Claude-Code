@@ -10,6 +10,7 @@
   --blue: #1f6c88;
   --success: #27674b;
   --warning: #8a5b12;
+  --danger: #9c3530;
   --shadow: 0 24px 80px rgba(49, 31, 15, 0.12);
   --radius-xl: 28px;
   --radius-lg: 20px;
@@ -30,6 +31,20 @@ body {
     linear-gradient(180deg, #f6f0e6 0%, #efe6d6 100%);
   color: var(--ink);
   font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+body {
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(31, 26, 23, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(31, 26, 23, 0.025) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
 }
 
 button,
@@ -90,7 +105,6 @@ textarea {
 .nav-item,
 .ghost,
 .primary,
-.chip,
 .toggle {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -108,7 +122,6 @@ textarea {
 
 .nav-item:hover,
 .ghost:hover,
-.chip:hover,
 .toggle:hover {
   transform: translateY(-1px);
   border-color: rgba(31, 26, 23, 0.25);
@@ -134,7 +147,8 @@ textarea {
 dialog,
 .detail-card,
 .card,
-.setting-card {
+.setting-card,
+.activity-item {
   background: var(--panel);
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow: var(--shadow);
@@ -172,6 +186,7 @@ dialog,
 }
 
 .topbar,
+.workspace-toolbar,
 .hero-grid,
 .content-grid {
   display: grid;
@@ -185,16 +200,52 @@ dialog,
 
 .topbar-actions,
 .composer-actions,
-.hero-tags {
+.hero-tags,
+.filter-cluster,
+.inspector-actions,
+.card-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.workspace-toolbar {
+  grid-template-columns: 1.3fr auto;
+  align-items: end;
+}
+
+.search-input {
+  display: grid;
+  gap: 8px;
+}
+
+.search-input input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 14px 16px;
+  color: var(--ink);
 }
 
 .ghost,
 .primary,
 .toggle {
   padding: 11px 16px;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.chip.active {
+  background: rgba(203, 90, 45, 0.12);
+  color: var(--accent);
+  border-color: rgba(203, 90, 45, 0.22);
 }
 
 .hero-grid {
@@ -211,6 +262,7 @@ dialog {
 .hero-panel,
 .panel {
   padding: 22px;
+  overflow: hidden;
 }
 
 .hero-panel p {
@@ -225,6 +277,26 @@ dialog {
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.86rem;
+}
+
+.pill-neutral {
+  background: rgba(31, 26, 23, 0.07);
+  color: var(--ink);
+}
+
+.pill-info {
+  background: rgba(31, 108, 136, 0.12);
+  color: var(--blue);
+}
+
+.pill-warning {
+  background: rgba(138, 91, 18, 0.12);
+  color: var(--warning);
+}
+
+.pill-danger {
+  background: rgba(156, 53, 48, 0.14);
+  color: var(--danger);
 }
 
 .stats-grid {
@@ -263,10 +335,15 @@ dialog {
   margin-bottom: 18px;
 }
 
+.panel-header.compact {
+  margin-bottom: 12px;
+}
+
 .transcript-list,
 .card-list,
 .settings-grid,
-.palette-grid {
+.palette-grid,
+.activity-feed {
   display: grid;
   gap: 12px;
 }
@@ -290,7 +367,8 @@ dialog {
 .message:hover,
 .message.active,
 .card:hover,
-.setting-card:hover {
+.setting-card:hover,
+.activity-item:hover {
   border-color: rgba(203, 90, 45, 0.35);
   background: rgba(255, 250, 245, 0.92);
 }
@@ -342,7 +420,7 @@ dialog {
 
 .detail-card {
   padding: 18px;
-  min-height: 360px;
+  min-height: 280px;
 }
 
 .detail-grid {
@@ -363,11 +441,20 @@ dialog {
 }
 
 .card,
-.setting-card {
+.setting-card,
+.activity-item {
   padding: 16px;
   border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.5);
+}
+
+.empty-state {
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px dashed rgba(31, 26, 23, 0.2);
+  background: rgba(255, 255, 255, 0.36);
+  color: var(--muted);
 }
 
 .card .pills,
@@ -378,8 +465,27 @@ dialog {
   margin-top: 12px;
 }
 
+.card-actions {
+  margin-top: 14px;
+}
+
 .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel-subsection {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.activity-item p {
+  margin: 0;
+}
+
+.activity-feed {
+  max-height: 240px;
+  overflow: auto;
 }
 
 .toggle-row {
@@ -411,6 +517,11 @@ dialog::backdrop {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.palette-card {
+  text-align: left;
+  cursor: pointer;
+}
+
 .hidden {
   display: none;
 }
@@ -419,6 +530,7 @@ dialog::backdrop {
   .app-shell,
   .hero-grid,
   .content-grid,
+  .workspace-toolbar,
   .settings-grid,
   .palette-grid {
     grid-template-columns: 1fr;
@@ -431,5 +543,27 @@ dialog::backdrop {
 
   .topbar {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel,
+  .hero-panel,
+  .status-card,
+  .card,
+  .message,
+  .activity-item {
+    animation: rise 240ms ease;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

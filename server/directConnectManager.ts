@@ -6,6 +6,18 @@ import type {
   StdoutMessage,
 } from '../entrypoints/sdk/controlTypes.js'
 import type { RemotePermissionResponse } from '../remote/RemoteSessionManager.js'
+import {
+  createBrowserRuntimeEventFromSdkMessage,
+  createPermissionRequestedEvent,
+  createPermissionResolvedEvent,
+  createTransportStatusEvent,
+  type BrowserRuntimeEvent,
+} from './browserRuntimeEvents.js'
+import {
+  ensureBrowserRuntimeRelay,
+  publishBrowserRuntimeEvent,
+  registerBrowserRuntimeIntentHandler,
+} from './browserRuntimeRelay.js'
 import { logForDebugging } from '../utils/debug.js'
 import { jsonParse, jsonStringify } from '../utils/slowOperations.js'
 import type { RemoteMessageContent } from '../utils/teleport/api.js'
@@ -26,6 +38,7 @@ export type DirectConnectCallbacks = {
   onConnected?: () => void
   onDisconnected?: () => void
   onError?: (error: Error) => void
+  onBrowserEvent?: (event: BrowserRuntimeEvent) => void
 }
 
 function isStdoutMessage(value: unknown): value is StdoutMessage {
@@ -41,13 +54,43 @@ export class DirectConnectSessionManager {
   private ws: WebSocket | null = null
   private config: DirectConnectConfig
   private callbacks: DirectConnectCallbacks
+  private unregisterIntentHandler: (() => void) | null = null
 
   constructor(config: DirectConnectConfig, callbacks: DirectConnectCallbacks) {
     this.config = config
     this.callbacks = callbacks
   }
 
+  private emitBrowserEvent(event: BrowserRuntimeEvent): void {
+    this.callbacks.onBrowserEvent?.(event)
+    publishBrowserRuntimeEvent(event)
+  }
+
   connect(): void {
+    ensureBrowserRuntimeRelay()
+    this.unregisterIntentHandler = registerBrowserRuntimeIntentHandler(
+      this.config.sessionId,
+      {
+        onPromptSubmit: content => this.sendMessage(content),
+        onPermissionResponse: params => {
+          this.respondToPermissionRequest(params.requestId, params.outcome === 'allow'
+            ? { behavior: 'allow', updatedInput: params.updatedInput ?? {} }
+            : { behavior: 'deny', message: params.message ?? 'Denied from browser UI' })
+          return true
+        },
+        onInterrupt: () => {
+          this.sendInterrupt()
+          return true
+        },
+      },
+    )
+    this.emitBrowserEvent(
+      createTransportStatusEvent({
+        sessionId: this.config.sessionId,
+        state: 'connecting',
+        label: 'Opening direct connect session',
+      }),
+    )
     const headers: Record<string, string> = {}
     if (this.config.authToken) {
       headers['authorization'] = `Bearer ${this.config.authToken}`
@@ -58,6 +101,13 @@ export class DirectConnectSessionManager {
     } as unknown as string[])
 
     this.ws.addEventListener('open', () => {
+      this.emitBrowserEvent(
+        createTransportStatusEvent({
+          sessionId: this.config.sessionId,
+          state: 'connected',
+          label: 'Direct connect session opened',
+        }),
+      )
       this.callbacks.onConnected?.()
     })
 
@@ -81,6 +131,13 @@ export class DirectConnectSessionManager {
         // Handle control requests (permission requests)
         if (parsed.type === 'control_request') {
           if (parsed.request.subtype === 'can_use_tool') {
+            this.emitBrowserEvent(
+              createPermissionRequestedEvent({
+                sessionId: this.config.sessionId,
+                request: parsed.request,
+                requestId: parsed.request_id,
+              }),
+            )
             this.callbacks.onPermissionRequest(
               parsed.request,
               parsed.request_id,
@@ -99,7 +156,22 @@ export class DirectConnectSessionManager {
           continue
         }
 
-        // Forward SDK messages (assistant, result, system, etc.)
+        // Forward browser-safe runtime events for SDK messages, including
+        // post_turn_summary which the local REPL intentionally ignores.
+        if (
+          parsed.type !== 'control_response' &&
+          parsed.type !== 'keep_alive' &&
+          parsed.type !== 'control_cancel_request' &&
+          parsed.type !== 'streamlined_text' &&
+          parsed.type !== 'streamlined_tool_use_summary'
+        ) {
+          const browserEvent = createBrowserRuntimeEventFromSdkMessage(parsed)
+          if (browserEvent) {
+            this.emitBrowserEvent(browserEvent)
+          }
+        }
+
+        // Forward SDK messages (assistant, result, system, etc.) to the REPL.
         if (
           parsed.type !== 'control_response' &&
           parsed.type !== 'keep_alive' &&
@@ -114,10 +186,24 @@ export class DirectConnectSessionManager {
     })
 
     this.ws.addEventListener('close', () => {
+      this.emitBrowserEvent(
+        createTransportStatusEvent({
+          sessionId: this.config.sessionId,
+          state: 'disconnected',
+          label: 'Direct connect session closed',
+        }),
+      )
       this.callbacks.onDisconnected?.()
     })
 
     this.ws.addEventListener('error', () => {
+      this.emitBrowserEvent(
+        createTransportStatusEvent({
+          sessionId: this.config.sessionId,
+          state: 'error',
+          label: 'Direct connect WebSocket error',
+        }),
+      )
       this.callbacks.onError?.(new Error('WebSocket connection error'))
     })
   }
@@ -164,6 +250,13 @@ export class DirectConnectSessionManager {
       },
     })
     this.ws.send(response)
+    this.emitBrowserEvent(
+      createPermissionResolvedEvent({
+        sessionId: this.config.sessionId,
+        requestId,
+        outcome: result.behavior,
+      }),
+    )
   }
 
   /**
@@ -201,6 +294,8 @@ export class DirectConnectSessionManager {
   }
 
   disconnect(): void {
+    this.unregisterIntentHandler?.()
+    this.unregisterIntentHandler = null
     if (this.ws) {
       this.ws.close()
       this.ws = null

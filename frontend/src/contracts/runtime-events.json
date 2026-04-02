@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Claude Code Browser Runtime Event",
+  "type": "object",
+  "required": ["type", "timestamp", "sessionId", "payload"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "session.snapshot",
+        "session.meta",
+        "message.created",
+        "message.updated",
+        "tool.started",
+        "tool.progress",
+        "tool.completed",
+        "permission.requested",
+        "permission.resolved",
+        "task.updated",
+        "mcp.updated",
+        "command.registered",
+        "transport.status"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Typed payload keyed by event.type"
+    }
+  }
+}

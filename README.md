@@ -1,153 +1,127 @@
 # Claude Code Source Snapshot
 
-This repository is a source snapshot of a large TypeScript/Bun-based CLI application centered around an interactive REPL/TUI, tool calling, slash commands, background tasks, agent workflows, MCP integration, and several feature-gated runtime modes.
+Language: **English** | [简体中文](./README.zh-CN.md)
 
-> Status note: this workspace snapshot does not currently include a root `package.json`, lockfile, or top-level test/lint configuration. The documentation below is intentionally limited to behavior that can be verified from the source files present in this checkout.
+This repository is a source snapshot of a large TypeScript/Bun-based CLI application with an interactive REPL/TUI, tool calling, slash commands, MCP integration, background tasks, remote/bridge flows, and a new browser control surface.
 
-## What this project is
+> Status note: this checkout does not include a root `package.json`, lockfile, or top-level build/test config. The commands and usage below are limited to behavior verified from the files present here.
 
-From the code that is present, this project is the source for a CLI application with these major capabilities:
+## What Is Included
 
-- interactive terminal UI built with Ink/React-style components
-- assistant turn execution with multi-step tool use
-- slash commands and skill-driven command extensions
-- background task execution for shell, local agent, and remote agent work
-- MCP integration and resource/tool loading
-- plugin and bundled-skill systems
-- worktree, bridge/remote-control, daemon, and background-session flows
+The code in this snapshot clearly supports:
 
-## Verified runtime requirements
+- Ink/React-style terminal UI
+- assistant turn execution with multi-step tool orchestration
+- slash commands, skills, plugins, and MCP servers
+- local shell, local agent, and remote agent background tasks
+- bridge, direct-connect, and remote session workflows
+- a browser-facing control surface in `frontend/`
 
-The following requirements are directly confirmed from source:
+## Verified Runtime Requirements
 
-- **Node.js 18+ is required** (`setup.ts` exits on lower versions)
-- **Bun-aware build/runtime paths are used heavily** (`bun:bundle` feature gates are used throughout the codebase)
+- **Node.js 18+** is required, see `setup.ts`
+- **Bun-aware build/runtime paths** are used heavily, especially `bun:bundle`
 
-Because the root manifest/config files are missing from this snapshot, project-wide build, lint, and test commands are **not documented here as verified commands**.
+Because the root manifests are missing, project-wide `build`, `lint`, and `test` commands are not documented here as verified commands.
 
-## Entry points and startup flow
+## Repository Layout
 
-The startup path is split across three main files:
+The snapshot is organized by subsystem:
 
-- `entrypoints/cli.tsx`
-  - bootstrap entrypoint
-  - handles fast paths such as `--version`, bridge/remote-control, daemon, background session commands, and worktree/tmux startup
-  - loads the full CLI only when no fast path applies
-- `main.tsx`
-  - main composition root for the CLI
-  - initializes config, telemetry, permissions, plugins, skills, MCP state, session state, migrations, and interactive/non-interactive execution
-  - wires command loading, rendering, session restore, and runtime state together
-- `setup.ts`
-  - per-session setup layer
-  - validates runtime requirements, sets cwd/project root, initializes hooks/watchers, handles worktree setup, starts background services, and enforces bypass-permission safety rules
+- `entrypoints/`, `main.tsx`, `setup.ts`: startup and composition root
+- `commands/`, `commands.ts`: slash/local commands
+- `tools/`, `tools.ts`, `Tool.ts`: tool registration and execution
+- `tasks/`, `tasks.ts`: background task types and implementations
+- `components/`, `screens/`, `hooks/`, `ink/`: terminal UI
+- `services/mcp/`, `commands/mcp/`: MCP configuration and UI
+- `bridge/`, `remote/`, `server/`: transport, direct-connect, remote sessions
+- `frontend/`: browser control surface
+- `docs/`: frontend architecture and event mapping notes
 
-## Core architecture
+## Browser Control Surface
 
-### 1. Query and assistant execution
+The repository now includes a browser UI under `frontend/`. It can consume:
 
-- `query.ts`
-  - core assistant turn loop
-  - handles message normalization, token budgeting, compact/recovery logic, tool execution orchestration, and turn continuation
-- `context.ts`
-  - builds cached system/user context injected into each conversation
-  - includes git snapshot information and discovered `CLAUDE.md` / memory content
-- `Tool.ts`
-  - defines tool contracts and the `ToolUseContext` shared across tool execution
+- mock runtime data
+- runtime events over SSE
+- runtime events over WebSocket
 
-### 2. Commands
+When the local browser relay is enabled, the UI can also send real intents back to the runtime:
 
-- `commands.ts`
-  - central registry for built-in commands
-  - merges built-in commands with bundled skills, skill-directory commands, and plugin-provided commands
-- `commands/`
-  - implementation directory for user-facing and internal command areas
-  - includes auth, config, review, plan, resume, MCP, plugin, task, session, and terminal workflows
+- `prompt.submit`
+- `permission.respond`
+- `session.interrupt`
 
-The command registry shows this CLI exposes a large slash-command surface including areas like `help`, `config`, `mcp`, `plugin`, `resume`, `review`, `tasks`, `status`, `vim`, `plan`, `permissions`, and more.
+Current UI entry points include prompt submission, permission allow/deny, interrupt, command-card run actions, and task-card interrupt actions.
 
-### 3. Tools
+## How To Use
 
-- `tools.ts`
-  - source of truth for tool availability in the current environment
-  - assembles core tools plus feature-gated tools, planning/task tools, MCP/resource tools, and platform-specific variants
-- `tools/`
-  - one directory per tool implementation
+### 1. Serve the frontend
 
-Key tool categories include:
+From the repository root:
 
-- file and search tools
-- shell execution tools
-- orchestration tools such as Agent, Skill, plan/worktree/task tools
-- web and MCP/resource tools
+```bash
+python3 -m http.server 8000
+```
 
-Tool availability is dynamic and depends on feature gates, runtime environment, permission mode, and MCP/task state.
+Then open:
 
-### 4. Background tasks
+```text
+http://localhost:8000/frontend/
+```
 
-- `tasks.ts`
-  - task type registry
-- `tasks/`
-  - implementations for local shell, local agent, remote agent, and other task types
+This uses mock data and is useful for UI development.
 
-Background execution is a first-class runtime concept in this codebase.
+### 2. Enable the local runtime relay
 
-### 5. Interactive UI
+In the process that runs Claude Code, enable the SSE relay:
 
-- `main.tsx`, `interactiveHelpers.tsx`, `replLauncher.tsx`
-  - interactive startup and REPL lifecycle
-- `components/`, `screens/`, `hooks/`, `ink/`
-  - terminal UI building blocks, full-screen flows, UI/session hooks, and lower-level Ink terminal plumbing
+```bash
+export CLAUDE_CODE_BROWSER_RELAY=1
+export CLAUDE_CODE_BROWSER_RELAY_PORT=43137
+```
 
-`main.tsx` is a large integration hub. When debugging behavior, it is usually more effective to start from the feature you care about and follow imports outward than to read the file linearly.
+The relay lives in `server/browserRuntimeRelay.ts` and publishes browser-safe runtime events from direct-connect and remote-session managers.
 
-### 6. Skills, plugins, and extensibility
+### 3. Open the frontend against real runtime events
 
-- `skills/`
-  - dynamic skill loading and bundled skill registration
-- `plugins/` and `services/plugins/`
-  - plugin discovery, installation, caching, CLI integration, and hot reload
+Once the relay is enabled and a real session is active, open:
 
-Skills and plugins are separate but related extension systems. `commands.ts` and `tools.ts` are the best top-level places to see how they become visible to the runtime.
+```text
+http://localhost:8000/frontend/?sse=http://127.0.0.1:43137/events
+```
 
-### 7. MCP, remote, and bridge flows
+If you want the UI scoped to a specific session, append:
 
-- `services/mcp/`, `commands/mcp/`, `entrypoints/mcp.ts`
-  - MCP configuration, clients, command/resource loading, and related command surface
-- `bridge/`, `remote/`, `server/`
-  - remote-control, transport/session infrastructure, and direct-connect or remote execution flows
+```text
+&sessionId=<your-session-id>
+```
 
-`entrypoints/cli.tsx` contains several specialized argv-based fast paths for these modes, so startup behavior changes significantly depending on how the CLI is invoked.
+### 4. Use the connected UI
 
-## Repository structure at a glance
+With SSE mode active, the browser UI can:
 
-This snapshot is organized by subsystem rather than by a single monolithic `src/` directory. Major top-level areas include:
+- display transcript, activity feed, tasks, MCP servers, tools, and commands from runtime events
+- submit prompts through the browser
+- approve or deny pending permission requests
+- interrupt the current session from the header or a running task card
 
-- `commands/` — slash and local command implementations
-- `tools/` — tool implementations and tool-specific UI/helpers
-- `tasks/` — background task implementations
-- `components/`, `screens/`, `hooks/`, `ink/` — terminal UI
-- `skills/` — bundled and dynamic skill loading
-- `plugins/`, `services/plugins/` — plugin systems
-- `services/` — larger runtime services (analytics, MCP, API, policy, etc.)
-- `bridge/`, `remote/`, `server/` — remote-control and session infrastructure
-- `bootstrap/`, `state/`, `context/` — shared runtime/session state and prompt context
-- `migrations/` — startup/settings migrations
+## Architecture Pointers
 
-## Working with this snapshot
+If you need to modify behavior, start from the owning layer:
 
-If you need to understand or modify behavior, start from the owning layer:
+- startup and argv dispatch: `entrypoints/cli.tsx`, `main.tsx`, `setup.ts`
+- assistant turn loop: `query.ts`, `context.ts`
+- commands: `commands.ts`, `commands/`
+- tools: `tools.ts`, `tools/`
+- tasks: `tasks.ts`, `tasks/`
+- remote/direct-connect/browser relay: `remote/`, `server/`, `bridge/`
+- browser UI: `frontend/src/`
 
-- startup / argv dispatch: `entrypoints/cli.tsx`, `main.tsx`, `setup.ts`
-- command behavior: `commands.ts` and the relevant file in `commands/`
-- tool behavior: `tools.ts`, `Tool.ts`, and the relevant file in `tools/`
-- assistant turn execution: `query.ts`
-- prompt/context injection: `context.ts`
-- background execution: `tasks.ts` and `tasks/`
-- terminal UI flows: `components/`, `screens/`, `interactiveHelpers.tsx`
-- MCP/remote flows: `services/mcp/`, `bridge/`, `remote/`, `server/`
-
-## Documentation in this repository
+## Additional Documentation
 
 - English: `README.md`
 - 简体中文: `README.zh-CN.md`
-- Claude Code repository guidance: `CLAUDE.md`
+- repository guidance: `CLAUDE.md`
+- frontend architecture: `docs/frontend-architecture.md`
+- frontend event mapping: `docs/frontend-event-mapping.md`

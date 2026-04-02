@@ -15,6 +15,18 @@ import {
   SessionsWebSocket,
   type SessionsWebSocketCallbacks,
 } from './SessionsWebSocket.js'
+import {
+  createBrowserRuntimeEventFromSdkMessage,
+  createPermissionRequestedEvent,
+  createPermissionResolvedEvent,
+  createTransportStatusEvent,
+  type BrowserRuntimeEvent,
+} from '../server/browserRuntimeEvents.js'
+import {
+  ensureBrowserRuntimeRelay,
+  publishBrowserRuntimeEvent,
+  registerBrowserRuntimeIntentHandler,
+} from '../server/browserRuntimeRelay.js'
 
 /**
  * Type guard to check if a message is an SDKMessage (not a control message)
@@ -82,6 +94,8 @@ export type RemoteSessionCallbacks = {
   onReconnecting?: () => void
   /** Called on error */
   onError?: (error: Error) => void
+  /** Optional browser-safe event stream for web UI consumers */
+  onBrowserEvent?: (event: BrowserRuntimeEvent) => void
 }
 
 /**
@@ -96,11 +110,17 @@ export class RemoteSessionManager {
   private websocket: SessionsWebSocket | null = null
   private pendingPermissionRequests: Map<string, SDKControlPermissionRequest> =
     new Map()
+  private unregisterIntentHandler: (() => void) | null = null
 
   constructor(
     private readonly config: RemoteSessionConfig,
     private readonly callbacks: RemoteSessionCallbacks,
   ) {}
+
+  private emitBrowserEvent(event: BrowserRuntimeEvent): void {
+    this.callbacks.onBrowserEvent?.(event)
+    publishBrowserRuntimeEvent(event)
+  }
 
   /**
    * Connect to the remote session via WebSocket
@@ -109,23 +129,78 @@ export class RemoteSessionManager {
     logForDebugging(
       `[RemoteSessionManager] Connecting to session ${this.config.sessionId}`,
     )
+    ensureBrowserRuntimeRelay()
+    this.unregisterIntentHandler = registerBrowserRuntimeIntentHandler(
+      this.config.sessionId,
+      {
+        onPromptSubmit: content => this.sendMessage(content),
+        onPermissionResponse: params => {
+          this.respondToPermissionRequest(
+            params.requestId,
+            params.outcome === 'allow'
+              ? { behavior: 'allow', updatedInput: params.updatedInput ?? {} }
+              : { behavior: 'deny', message: params.message ?? 'Denied from browser UI' },
+          )
+          return true
+        },
+        onInterrupt: () => {
+          this.cancelSession()
+          return true
+        },
+      },
+    )
+    this.emitBrowserEvent(
+      createTransportStatusEvent({
+        sessionId: this.config.sessionId,
+        state: 'connecting',
+        label: 'Opening remote session',
+      }),
+    )
 
     const wsCallbacks: SessionsWebSocketCallbacks = {
       onMessage: message => this.handleMessage(message),
       onConnected: () => {
         logForDebugging('[RemoteSessionManager] Connected')
+        this.emitBrowserEvent(
+          createTransportStatusEvent({
+            sessionId: this.config.sessionId,
+            state: 'connected',
+            label: 'Remote session connected',
+          }),
+        )
         this.callbacks.onConnected?.()
       },
       onClose: () => {
         logForDebugging('[RemoteSessionManager] Disconnected')
+        this.emitBrowserEvent(
+          createTransportStatusEvent({
+            sessionId: this.config.sessionId,
+            state: 'disconnected',
+            label: 'Remote session disconnected',
+          }),
+        )
         this.callbacks.onDisconnected?.()
       },
       onReconnecting: () => {
         logForDebugging('[RemoteSessionManager] Reconnecting')
+        this.emitBrowserEvent(
+          createTransportStatusEvent({
+            sessionId: this.config.sessionId,
+            state: 'connecting',
+            label: 'Remote session reconnecting',
+          }),
+        )
         this.callbacks.onReconnecting?.()
       },
       onError: error => {
         logError(error)
+        this.emitBrowserEvent(
+          createTransportStatusEvent({
+            sessionId: this.config.sessionId,
+            state: 'error',
+            label: error.message,
+          }),
+        )
         this.callbacks.onError?.(error)
       },
     }
@@ -164,6 +239,14 @@ export class RemoteSessionManager {
         `[RemoteSessionManager] Permission request cancelled: ${request_id}`,
       )
       this.pendingPermissionRequests.delete(request_id)
+      this.emitBrowserEvent(
+        createPermissionResolvedEvent({
+          sessionId: this.config.sessionId,
+          requestId: request_id,
+          outcome: 'cancel',
+          message: 'Permission request cancelled by server',
+        }),
+      )
       this.callbacks.onPermissionCancelled?.(
         request_id,
         pendingRequest?.tool_use_id,
@@ -179,6 +262,10 @@ export class RemoteSessionManager {
 
     // Forward SDK messages to callback (type guard ensures proper narrowing)
     if (isSDKMessage(message)) {
+      const browserEvent = createBrowserRuntimeEventFromSdkMessage(message)
+      if (browserEvent) {
+        this.emitBrowserEvent(browserEvent)
+      }
       this.callbacks.onMessage(message)
     }
   }
@@ -194,6 +281,13 @@ export class RemoteSessionManager {
         `[RemoteSessionManager] Permission request for tool: ${inner.tool_name}`,
       )
       this.pendingPermissionRequests.set(request_id, inner)
+      this.emitBrowserEvent(
+        createPermissionRequestedEvent({
+          sessionId: this.config.sessionId,
+          request: inner,
+          requestId: request_id,
+        }),
+      )
       this.callbacks.onPermissionRequest(inner, request_id)
     } else {
       // Send an error response for unrecognized subtypes so the server
@@ -277,6 +371,13 @@ export class RemoteSessionManager {
     logForDebugging(
       `[RemoteSessionManager] Sending permission response: ${result.behavior}`,
     )
+    this.emitBrowserEvent(
+      createPermissionResolvedEvent({
+        sessionId: this.config.sessionId,
+        requestId,
+        outcome: result.behavior,
+      }),
+    )
 
     this.websocket?.sendControlResponse(response)
   }
@@ -308,6 +409,8 @@ export class RemoteSessionManager {
    */
   disconnect(): void {
     logForDebugging('[RemoteSessionManager] Disconnecting')
+    this.unregisterIntentHandler?.()
+    this.unregisterIntentHandler = null
     this.websocket?.close()
     this.websocket = null
     this.pendingPermissionRequests.clear()

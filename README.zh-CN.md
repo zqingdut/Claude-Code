@@ -1,5 +1,7 @@
 # Claude Code 源码快照
 
+语言： [English](./README.md) | **简体中文**
+
 这个仓库是一个大型 TypeScript/Bun CLI 应用的源码快照。当前可见代码表明，它围绕交互式 REPL/TUI、工具调用、slash commands、后台任务、agent 工作流、MCP 集成以及多个按 feature gate 控制的运行模式构建。
 
 > 状态说明：当前工作区快照里没有根级 `package.json`、lockfile，也没有顶层测试或 lint 配置。下面的文档只记录能从当前源码中直接验证的信息，不补充未确认的构建命令。

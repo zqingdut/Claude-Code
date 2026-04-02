@@ -28,4 +28,15 @@ Add a browser UI that can drive the existing Claude Code runtime without replaci
    Permission dialogs, task detail views, and MCP server panels already exist conceptually in `components/`; the web UI should mirror those states.
 
 ## Included prototype
-`frontend/` is a static control-surface prototype. It is intentionally build-free so it can live inside this snapshot now. The next implementation step is to replace its mock state with a transport client wired into the runtime layers above.
+`frontend/` is now a build-free browser application foundation:
+- `src/core/` owns router, state store, and transport contracts
+- `src/data/` provides mock runtime snapshots and event streams
+- `src/ui/` handles rendering and view composition
+- `src/contracts/runtime-events.json` defines the browser event envelope
+
+## Productization path
+1. A lightweight SSE relay now exists in `server/browserRuntimeRelay.ts`.
+2. Direct-connect and remote-session managers publish typed runtime events into that relay.
+3. Replace mock snapshots with live session bootstrap payloads.
+4. Add intent handlers for prompt submit, permission resolve, command execution, and task control.
+5. Move high-volume payloads like shell output and diffs into paged inspector tabs to avoid transcript bloat.
